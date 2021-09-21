@@ -8,10 +8,9 @@ LICENSE file in the root directory of this source tree.
 
 
 ############## BEGIN OF IMPORTS ##############
-from typing import Any, Union
 
-from BC_IO import WriteDFToFile, read_raman_to_df, read_chi_to_df, read_spc_to_df
 from tkinter.filedialog import askopenfilenames, askopenfilename
+from pyspectra.readers.read_spc import spc
 from tkinter import Tk
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import spsolve
@@ -79,6 +78,151 @@ def sanitize_test_row_index():
         test_row_index = int(test_row_index)
     except ValueError:
         raise ValueError("Test row index could not be converted to int. Make sure to use a valid column index.")
+
+
+############### BEGIN OF IO CLASSES ###############
+
+class WriteDFToFile:  # Class to write pandas DataFrames into a chi/dat file
+    def __init__(self, df, filename, head="", sep="  ", include_head=True):
+        self.df = df.transpose()
+        self.filename = filename
+        self.sep = sep
+        self.head = head if include_head else ''
+
+        self.nr_rows = len(df)
+        self.nr_columns = len(df.columns)
+
+        # Thread(self.df_to_string()).start()
+        self.df_to_string()
+
+    def df_to_string(self):
+        output_list = []
+        for column in self.df.columns:
+            output_list.append(list(self.df[column]))
+
+        # joins all columns in rows
+        output_list = map(lambda x: self.sep.join(map(lambda y: "%2.7e" % y, x)), output_list)
+        body = "\n".join(output_list)
+
+        with open(self.filename, "w+") as writefile:
+            if self.head is None:
+                head = ""
+            else:
+                head = self.head
+            writefile.write(head + "\n" + body)
+
+
+class ReadRamanToDF:  # Class to read Raman file into pandas DataFrames
+    def __init__(self, filename, include_head=True):
+        self.filename = filename
+        self.include_head = include_head
+
+        if __name__ == '__main__':  # only shows debug output when this program is directly executed
+            print(f"[ReadRamanToDF] Reading {self.filename}")
+
+        with open(self.filename) as readfile:  # reads out content of the specified file
+            self.file_content = readfile.read()
+
+        if __name__ == '__main__':  # only shows debug output when this program is directly executed
+            print(f"[ReadRamanToDF] Reading {self.filename} successfully finished")
+
+    def file_content_to_df(self):
+        lines_raw = self.file_content.split("\n")  # splits up lines and removes the header
+        if self.include_head:
+            lines = list(map(lambda x: x.split(), lines_raw[1:-1]))  # splits up the columns of each line
+        else:
+            lines = list(map(lambda x: x.split(), lines_raw[:-1]))  # splits up the columns of each line
+
+        num_columns = len(lines[0])
+        try:
+            column_names = ['RamanShift (cm-1)', *lines_raw[0].split()[2:]]
+        except IndexError:
+            column_names = ['RamanShift (cm-1)', *list('I_' + str(x) for x in range(num_columns - 1))]
+
+        content_df = pd.DataFrame(columns=('RamanShift (cm-1)', *column_names[1:]))
+
+        x_column = list(map(lambda x: float(x[0]), lines))
+        content_df['RamanShift (cm-1)'] = x_column
+
+        # enumerates through all columns and writes them into the content_df dataFrame
+        for column_index, column_name in enumerate(column_names):
+            if column_name == 'RamanShift (cm-1)':
+                continue
+            y_column = list(map(lambda x: float(x[column_index]), lines))
+
+            content_df[column_name] = y_column
+
+        return content_df, column_names  # returns the df and head (column titles in this case)
+
+
+class ReadChiToDF:  # class for reading chi file into a pandas DataFrame
+    def __init__(self, filename, i_column_name, include_head=True):
+        self.filename = filename
+        self.i_column_name = i_column_name
+        self.include_head = include_head
+
+        if __name__ == '__main__':  # only show debug output if this file is directly executed
+            print(f"[ReadChiToDF] Reading {self.filename}")
+
+        with open(filename) as file:  # open specified file and read out content
+            self.file_content = file.read()
+
+        if __name__ == '__main__':  # only show debug output if this file is directly executed
+            print(f"[ReadChiToDF] Reading {self.filename} successfully finished")
+
+    def file_content_to_df(self):
+        lines_raw = self.file_content.split("\n")  # splits up lines and removes the header
+        if self.include_head:
+            lines = list(map(lambda x: x.split(), lines_raw[4:-1]))  # splits up the columns of each line
+        else:
+            lines = list(map(lambda x: x.split(), lines_raw[:-1]))  # splits up the columns of each line
+
+        x_column = list(map(lambda x: float(x[0]), lines))  # creates list out of first column (angles)
+        y_column = list(map(lambda x: float(x[1]), lines))  # creates list out of second column (intensity)
+
+        content_df = pd.DataFrame(columns=('q', self.i_column_name))  # creates empty dataframe to store x and y column
+        content_df['q'] = x_column  # writes x_column list into 'q' column
+        content_df[self.i_column_name] = y_column  # writes y_column list into 'I' (or whatever was specified) column
+
+        if __name__ == '__main__':  # only show debug output if this file is directly executed
+            from pprint import pprint
+            pprint(content_df.head())
+
+        return content_df, lines_raw[:4]  # returns the dataframe and the first 4 lines (head)
+
+
+def read_raman_to_df(filename: str, header=True):
+    return ReadRamanToDF(filename, include_head=header).file_content_to_df()
+
+
+def read_chi_to_df(filename: str, header=True, column_name="I"):
+    return ReadChiToDF(filename, include_head=header, i_column_name=column_name).file_content_to_df()
+
+
+def read_spc_to_df(filename: str):
+    # This function was taken from the pyspectra library to be modified to this programs needs
+    out = pd.DataFrame()
+
+    f = spc.File(filename)  # Read file
+    if f.dat_fmt.endswith('-xy'):
+        for s in f.sub:
+            x = s.x
+            y = s.y
+
+            out["RamanShift (cm-1)"] = x
+            out[str(round(s.subtime))] = y
+    else:
+        for s in f.sub:
+            x = f.x
+            y = s.y
+
+            out["RamanShift (cm-1)"] = x
+            out[str(round(s.subtime))] = y
+
+    return out, "\t".join(map(str, out.columns))
+
+
+################ END OF IO CLASSES ################
 
 
 class Algorithms:
@@ -193,6 +337,8 @@ class BackgroundCorrection:
                         'filetypes': readfile_ui_file_types}
 
     def __init__(self):
+        sanitize_test_row_index()
+
         data_frames, files, heads = self.read_files()
         heads = self.extend_headers(heads)
 
@@ -291,7 +437,7 @@ class BackgroundCorrection:
         else:
             return_df[column_name] = intensity_corrected
 
-        return return_df, baseline  # return edited return_df and the baseline
+        return return_df, baseline, intensity_corrected  # return edited return_df and the baseline
 
     def apply_wave_range(self, df: pd.DataFrame, column_name: str, min_selection=None, max_selection=None):
         if min_selection is None or max_selection is None:
@@ -349,8 +495,8 @@ class BackgroundCorrection:
             intensity = self.apply_wave_range(df, column_name, min_selection, max_selection)
 
             if jar_correction:
-                intensity_baseline_corrected, _ = self.add_baseline_diff(pd.DataFrame(intensity, columns=["y"]),
-                                                                         "y", pd.DataFrame())
+                intensity_baseline_corrected, _, _ = self.add_baseline_diff(pd.DataFrame(intensity, columns=["y"]),
+                                                                            "y", pd.DataFrame())
                 # Calculate area underneath intensity curve in (jar) scaling range
                 data_ranged = intensity_baseline_corrected.loc[(jar_min_selection & jar_max_selection)].to_numpy()
                 data_ranged_area = np.trapz(y=data_ranged, x=jar_corrected_ranged_x)
@@ -366,7 +512,8 @@ class BackgroundCorrection:
 
             pprint(data)
 
-            output_df, baseline_diff = self.add_baseline_diff(data, data.columns[1], output_df, data.columns[0])
+            output_df, baseline_diff, unscaled_corrected = self.add_baseline_diff(data, data.columns[1],
+                                                                                  output_df, data.columns[0])
 
             baseline = pd.DataFrame()
             baseline['baseline'] = baseline_diff
@@ -377,9 +524,9 @@ class BackgroundCorrection:
 
             if plot_data:  # will plot every set of data if this option is enabled
                 try:
-                    # plt.plot(intensity, color="blue", label="intensity")
-                    plt.plot(output_df[column_name], color="green", label="baseline difference")
-                    # plt.plot(baseline['baseline'], color="red", label="baseline")
+                    plt.plot(intensity, color="blue", label="original")
+                    plt.plot(baseline['baseline'], color="red", label="baseline")
+                    plt.plot(unscaled_corrected, color="green", label="baseline corrected")
 
                     plt.xlabel(x_column_name)
                     plt.ylabel("intensity")
