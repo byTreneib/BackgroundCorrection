@@ -30,22 +30,34 @@ import time
 
 ############## BEGIN OF OPTIONS ##############
 
+# Select the index of the column a test run should be executed on. Leave empty ('' or "") if no testing is required.
+# If set, the Background will only run on this column to test the fit of the parameters chosen
 test_row_index = ''
-plot_data = True
 
-dat_file_separator = '\t'
-include_header = True
+# Set to True to show every processed dataset in a plot.
+# ATTENTION: When running with this option turned on, execution will be paused while the plot is being displayed
+plot_data = False
 
+dat_file_separator = '\t'  # Separator (as string), that will be used to separate the values when writing to .dat file
+include_header = True  # When true, will read the headers of the input files, and extend them with the parameters
+
+# When jar_correction is set to True the user will be asked to provide a file containing reference intensities for the
+# jar in a second prompt. The program will then scale the reference intensities within the provided jar_scaling_range
+# and subtract the reference intensities from the scan data.
+# ATTENTION: At current state of development, when enabled, this will consume significantly more time than without it.
 jar_correction = False
 jar_scaling_range = (0, -1)  # Set range as (start_value, end_value), e.g. (0, 100)
 
+# Minimum and maximum value for the x column
 wave_min = 180
 wave_max = 3395
 
-baseline_itermax = 100
-baseline_lambda = 1E5
-baseline_ratio = 0.01
+# Parameters for the als/arpls
+baseline_itermax = 100  # number of iterations the algorithm will perform
+baseline_lambda = 1E5  # the larger lambda is, the smoother the resulting background
+baseline_ratio = 0.01  # wheighting deviations: 0 < baseline_ratio < 1, smaller values allow less negative values
 
+# List of file types that will be available in the file input prompt
 readfile_ui_file_types = [("spc files", "*.spc"),
                           ("chi files", "*.chi"),
                           ("txt raman files", "*.txt"),
