@@ -10,19 +10,20 @@ LICENSE file in the root directory of this source tree.
 ############## BEGIN OF IMPORTS ##############
 
 from tkinter.filedialog import askopenfilenames, askopenfilename
-from pyspectra.readers.read_spc import spc
 from tkinter import Tk
-import matplotlib.pyplot as plt
+from os import getcwd
+
+from pyspectra.readers.read_spc import spc
 from scipy.sparse.linalg import spsolve
 from scipy.linalg import cholesky
 from scipy import sparse
-from os import getcwd
 import pandas as pd
-import scipy as sp
 import numpy as np
+import scipy as sp
+
+import matplotlib.pyplot as plt
 import time
 
-from pprint import pprint
 
 ############### END OF IMPORTS ###############
 
@@ -430,8 +431,6 @@ class BackgroundCorrection:
             # Norm intensities to area under intensity curve
             intensity_corrected_area = abs(np.trapz(y=intensity_corrected, x=df[x_column_name].to_numpy()))
             intensity_corrected_normed = intensity_corrected / intensity_corrected_area
-            print(f"Final scale area: {intensity_corrected_area}")
-            pprint(f"Final scale result:\n{intensity_corrected_normed}")
 
             return_df[column_name] = intensity_corrected_normed  # add difference to return df
         else:
@@ -510,7 +509,7 @@ class BackgroundCorrection:
             data = pd.concat([x_column_selection, intensity], axis='columns')
             data = data.reset_index(drop=True)
 
-            pprint(data)
+            print(data)
 
             output_df, baseline_diff, unscaled_corrected = self.add_baseline_diff(data, data.columns[1],
                                                                                   output_df, data.columns[0])
