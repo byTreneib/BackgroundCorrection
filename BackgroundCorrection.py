@@ -359,7 +359,7 @@ class BackgroundCorrection:
         heads = self.extend_headers(heads)
 
         for df, filename, head in zip(data_frames, files, heads):
-            self.process_test_new_arpls(df, filename, head)
+            self.process_data(df, filename, head)
 
     def read_files(self):
         data_frames = []
@@ -530,7 +530,7 @@ class BackgroundCorrection:
                                                                                   output_df, data.columns[0])
 
             baseline = pd.DataFrame()
-            baseline['baseline'] = baseline_diff[::-1]
+            baseline['baseline'] = baseline_diff
 
             output_df = output_df.set_index(x_column_selection)
             baseline = baseline.set_index(x_column_selection)
@@ -540,7 +540,7 @@ class BackgroundCorrection:
                 try:
                     plt.plot(intensity, color="blue", label="original")
                     plt.plot(baseline['baseline'], color="red", label="baseline")
-                    plt.plot(unscaled_corrected, color="green", label="baseline corrected")
+                    plt.plot(unscaled_corrected[::1], color="green", label="baseline corrected")
 
                     plt.xlabel(x_column_name)
                     plt.ylabel("intensity")
