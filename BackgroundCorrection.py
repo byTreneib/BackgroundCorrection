@@ -48,6 +48,9 @@ include_header = True  # When true, will read the headers of the input files, an
 jar_correction = False
 jar_scaling_range = (0, -1)  # Set range as (start_value, end_value), e.g. (0, 100)
 
+# Set to true to norm the final corrected result to the area under the curve. The additional time taken is minimal.
+norm_final = False
+
 # Minimum and maximum value for the x column
 wave_min = 180
 wave_max = 3395
@@ -356,7 +359,7 @@ class BackgroundCorrection:
         heads = self.extend_headers(heads)
 
         for df, filename, head in zip(data_frames, files, heads):
-            self.process_data(df, filename, head)
+            self.process_test_new_arpls(df, filename, head)
 
     def read_files(self):
         data_frames = []
@@ -439,7 +442,7 @@ class BackgroundCorrection:
 
         intensity_corrected = np.array(column - baseline)
 
-        if x_column_name is not None:
+        if x_column_name is not None and norm_final:
             # Norm intensities to area under intensity curve
             intensity_corrected_area = abs(np.trapz(y=intensity_corrected, x=df[x_column_name].to_numpy()))
             intensity_corrected_normed = intensity_corrected / intensity_corrected_area
@@ -527,7 +530,7 @@ class BackgroundCorrection:
                                                                                   output_df, data.columns[0])
 
             baseline = pd.DataFrame()
-            baseline['baseline'] = baseline_diff
+            baseline['baseline'] = baseline_diff[::-1]
 
             output_df = output_df.set_index(x_column_selection)
             baseline = baseline.set_index(x_column_selection)
