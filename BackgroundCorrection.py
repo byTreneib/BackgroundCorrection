@@ -36,7 +36,7 @@ test_row_index = ''
 
 # Set to True to show every processed dataset in a plot.
 # ATTENTION: When running with this option turned on, execution will be paused while the plot is being displayed
-plot_data = False
+plot_data = True
 
 dat_file_separator = '\t'  # Separator (as string), that will be used to separate the values when writing to .dat file
 include_header = True  # When true, will read the headers of the input files, and extend them with the parameters
@@ -55,7 +55,12 @@ norm_final = False
 wave_min = 180
 wave_max = 3395
 
-# Parameters for the als/arpls
+# Select the algorithm that will do the background correction (as integer)
+# 0 -> arpls
+# 1 -> als
+algorithm = 1
+
+# Parameters for the baseline algorithm
 baseline_itermax = 100  # number of iterations the algorithm will perform
 baseline_lambda = 1E5  # the larger lambda is, the smoother the resulting background
 baseline_ratio = 0.01  # wheighting deviations: 0 < baseline_ratio < 1, smaller values allow less negative values
@@ -347,6 +352,10 @@ class Algorithms:
             w = ratio * (y > z) + (1 - ratio) * (y < z)
         return z
 
+    @staticmethod
+    def algorithm(alg_index: int):
+        return [Algorithms.arpls, Algorithms.als][alg_index]
+
 
 class BackgroundCorrection:
     readfile_options = {'initialdir': getcwd(),
@@ -438,7 +447,7 @@ class BackgroundCorrection:
         """
 
         column = df[column_name]
-        baseline = Algorithms.arpls(column.to_numpy())
+        baseline = Algorithms.algorithm(algorithm)(column.to_numpy())
 
         intensity_corrected = np.array(column - baseline)
 
@@ -524,23 +533,21 @@ class BackgroundCorrection:
             data = pd.concat([x_column_selection, intensity], axis='columns')
             data = data.reset_index(drop=True)
 
-            print(data)
-
             output_df, baseline_diff, unscaled_corrected = self.add_baseline_diff(data, data.columns[1],
                                                                                   output_df, data.columns[0])
 
             baseline = pd.DataFrame()
             baseline['baseline'] = baseline_diff
 
-            output_df = output_df.set_index(x_column_selection)
             baseline = baseline.set_index(x_column_selection)
             intensity = pd.DataFrame(intensity).set_index(x_column_selection)
+            unscaled = pd.DataFrame(unscaled_corrected).set_index(x_column_selection)
 
             if plot_data:  # will plot every set of data if this option is enabled
                 try:
                     plt.plot(intensity, color="blue", label="original")
                     plt.plot(baseline['baseline'], color="red", label="baseline")
-                    plt.plot(unscaled_corrected[::1], color="green", label="baseline corrected")
+                    plt.plot(unscaled, color="green", label="baseline corrected")
 
                     plt.xlabel(x_column_name)
                     plt.ylabel("intensity")
